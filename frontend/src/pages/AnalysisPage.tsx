@@ -34,7 +34,7 @@ export function AnalysisPage() {
         {tabs.map((item) => <Button key={item} variant={tab === item ? 'default' : 'ghost'} size="sm" onClick={() => setSearchParams({ tab: item })}>{item}</Button>)}
       </nav>
       {tab === 'Overview' && <div className="space-y-6">
-        {analysis.summary ? <SummaryGrid summary={analysis.summary} /> : <StateMessage>Сводка ещё не предоставлена API.</StateMessage>}
+        {!isMockMode && !analysis.demo && (analysis.summary ? <SummaryGrid summary={analysis.summary} /> : <StateMessage>Сводка ещё не предоставлена API.</StateMessage>)}
         <section className="space-y-3"><h2 className="text-xl font-semibold">Документы</h2><ul className="divide-y rounded-lg border bg-white">{analysis.documents.map((document) => <li key={document.id} className="flex justify-between gap-3 p-3 text-sm"><span className="min-w-0 truncate">{document.name}</span><Badge variant="outline">{document.side.toUpperCase()}</Badge></li>)}</ul></section>
       </div>}
       {tab === 'Departments' && <DepartmentsList departments={analysis.departments ?? []} />}

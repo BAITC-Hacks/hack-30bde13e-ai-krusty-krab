@@ -8,7 +8,7 @@ cp -n .env.example .env
 npm run dev
 ```
 
-Пример `.env.example` подключает локальный backend через Vite proxy по `/api`. Пустой `VITE_API_URL` включает mock API только в браузере: он сохраняет имена файлов в `localStorage` и не читает содержимое документов. Для production сборки задайте полный адрес API и запустите `npm run build`.
+По умолчанию frontend подключает локальный backend через Vite proxy по `/api`. Явное пустое значение `VITE_API_URL=` включает mock API только в браузере: он сохраняет имена файлов в `localStorage` и не читает содержимое документов. Для production сборки задайте полный адрес API и запустите `npm run build`.
 
 ## HTTP API
 

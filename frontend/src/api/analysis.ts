@@ -1,6 +1,6 @@
 import type { Analysis, CreateAnalysisInput, Document, Finding, OrgFunction, Side } from '@/types/analysis'
 
-const apiUrl = import.meta.env.VITE_API_URL?.trim().replace(/\/$/, '')
+const apiUrl = (import.meta.env.VITE_API_URL ?? '/api').trim().replace(/\/$/, '')
 export const isMockMode = !apiUrl
 
 const storageKey = 'hackalem-analyses'

@@ -18,7 +18,7 @@ export async function buildApp(config = {}) {
   const databaseUrl = config.databaseUrl ?? process.env.DATABASE_URL ?? './data/app.sqlite';
   const uploadDir = resolve(config.uploadDir ?? process.env.UPLOAD_DIR ?? './data/uploads');
   const aiServiceUrl = config.aiServiceUrl ?? process.env.AI_SERVICE_URL ?? 'http://localhost:8001';
-  const useMockAi = config.useMockAi ?? process.env.USE_MOCK_AI === 'true';
+  const useMockAi = config.useMockAi ?? process.env.USE_MOCK_AI?.toLowerCase() === 'true';
   const corsOrigins = config.corsOrigins ?? process.env.CORS_ORIGINS ?? '';
   const app = Fastify({ logger: config.logger ?? true });
   const db = openDb(databaseUrl);
@@ -115,7 +115,7 @@ export async function buildApp(config = {}) {
     } catch (error) {
       request.log.error(error);
       db.failRun(analysis.id);
-      return reply.code(502).send({ error: 'AI Service analysis failed' });
+      return reply.code(502).send({ error: error.publicMessage ?? 'AI Service analysis failed' });
     }
   });
 

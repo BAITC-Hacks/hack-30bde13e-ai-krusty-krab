@@ -6,7 +6,14 @@ async function postJson(url, key, body) {
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
     body: JSON.stringify(body), signal: AbortSignal.timeout(60_000),
   });
-  if (!response.ok) throw new Error(`Provider request failed with HTTP ${response.status}`);
+  if (!response.ok) {
+    const rejectedKey = [401, 403].includes(response.status);
+    const error = new Error(rejectedKey
+      ? `Provider rejected API key (HTTP ${response.status})`
+      : `Provider request failed with HTTP ${response.status}`);
+    if (rejectedKey) error.status = 503;
+    throw error;
+  }
   return response.json();
 }
 

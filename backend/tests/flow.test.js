@@ -62,9 +62,15 @@ test('upload, AI handoff, evidence preservation, failure and mock flow', async (
     assert.notEqual(request.before[0].id, request.after[0].id);
     assert.deepEqual((await json(`/api/analyses/${analysis.id}/result`))[1], aiResult);
     failAi = true;
-    assert.equal((await json(`/api/analyses/${analysis.id}/run`, { method: 'POST' }))[0], 502);
+    const [failureStatus, failure] = await json(`/api/analyses/${analysis.id}/run`, { method: 'POST' });
+    assert.equal(failureStatus, 502);
+    assert.match(failure.error, /AI Service вернул HTTP 500: unavailable/);
     assert.equal((await json(`/api/analyses/${analysis.id}`))[1].status, 'FAILED');
     assert.equal((await json(`/api/analyses/${analysis.id}/result`))[0], 409);
+    await new Promise(resolve => ai.close(resolve));
+    const [offlineStatus, offline] = await json(`/api/analyses/${analysis.id}/run`, { method: 'POST' });
+    assert.equal(offlineStatus, 502);
+    assert.match(offline.error, /AI Service недоступен.*USE_MOCK_AI=true/);
     assert.equal((await json(`/api/analyses/${analysis.id}`, { method: 'DELETE' }))[0], 204);
     assert.equal((await json(`/api/analyses/${analysis.id}`))[0], 404);
 
@@ -90,7 +96,7 @@ test('upload, AI handoff, evidence preservation, failure and mock flow', async (
     } finally { await mock.close(); }
   } finally {
     await app.close();
-    await new Promise(resolve => ai.close(resolve));
+    if (ai.listening) await new Promise(resolve => ai.close(resolve));
     await rm(dir, { recursive: true, force: true });
   }
 });
