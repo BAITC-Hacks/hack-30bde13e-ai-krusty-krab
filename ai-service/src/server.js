@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { ZodError } from 'zod';
@@ -5,6 +6,7 @@ import { analyzeRequest } from './schema.js';
 import { analyze } from './analysis.js';
 
 function send(response, status, body) {
+  if (response.destroyed || response.writableEnded) return;
   response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
   response.end(JSON.stringify(body));
 }
@@ -40,10 +42,17 @@ export function app() {
       send(response, 404, { error: 'Not found' });
       return;
     }
+    const controller = new AbortController();
+    const requestId = randomUUID();
+    response.on('close', () => { if (!response.writableEnded) controller.abort(); });
     try {
       const input = analyzeRequest.parse(await readJson(request));
-      send(response, 200, await analyze(input));
+      send(response, 200, await analyze(input, { signal: controller.signal,
+        onProgress: progress => console.log(JSON.stringify({ requestId, ...progress })) }));
     } catch (error) {
+      controller.abort();
+      console.error(JSON.stringify({ requestId, error: error.status ? error.message : error.name }));
+      if (response.destroyed) return;
       if (error instanceof ZodError) send(response, 422, { error: 'Invalid request or result schema', details: error.issues });
       else if (error.status) send(response, error.status, { error: error.message });
       else if (/invalid base64|file must be|cannot parse|supported formats/.test(error.message)) {

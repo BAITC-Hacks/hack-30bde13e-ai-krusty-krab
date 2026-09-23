@@ -50,6 +50,7 @@ export function openDb(databaseUrl) {
 
   return {
     close: () => db.close(),
+    recoverInterrupted: () => db.prepare("UPDATE analyses SET status='FAILED', error='Backend был перезапущен во время анализа. Повторите запуск.', updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE status='PROCESSING'").run(),
     getAnalysis,
     listAnalyses: () => db.prepare('SELECT * FROM analyses ORDER BY created_at DESC, id DESC').all(),
     createAnalysis: (id, name) => {

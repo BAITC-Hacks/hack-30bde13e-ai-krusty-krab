@@ -22,7 +22,14 @@ export async function buildApp(config = {}) {
   const corsOrigins = config.corsOrigins ?? process.env.CORS_ORIGINS ?? '';
   const app = Fastify({ logger: config.logger ?? true });
   const db = openDb(databaseUrl);
-  app.addHook('onClose', () => db.close());
+  // One backend process owns this SQLite database and its running analyses.
+  db.recoverInterrupted();
+  const activeRuns = new Map();
+  app.addHook('onClose', async () => {
+    for (const { controller } of activeRuns.values()) controller.abort();
+    await Promise.allSettled([...activeRuns.values()].map(run => run.job));
+    db.close();
+  });
 
   await app.register(cors, { origin: corsOrigins ? corsOrigins.split(',').map(x => x.trim()) : false });
   await app.register(multipart, { limits: { files: 1, fields: 1, parts: 2, fileSize: 20 * 1024 * 1024 } });
@@ -109,15 +116,25 @@ export async function buildApp(config = {}) {
       throw fail(409, 'At least one BEFORE and one AFTER document are required');
     }
     db.beginRun(analysis.id);
-    try {
-      const result = await analyze(documents, { aiServiceUrl, useMockAi });
-      return reply.send(db.completeRun(analysis.id, result));
-    } catch (error) {
-      request.log.error(error);
-      const message = error.publicMessage ?? 'AI Service analysis failed';
-      db.failRun(analysis.id, message);
-      return reply.code(502).send({ error: message });
-    }
+    const controller = new AbortController();
+    const job = (async () => {
+      try {
+        const result = await analyze(documents, { aiServiceUrl, useMockAi, signal: controller.signal });
+        return { analysis: db.completeRun(analysis.id, result) };
+      } catch (error) {
+        request.log.error(error);
+        const message = error.publicMessage ?? 'AI Service analysis failed';
+        db.failRun(analysis.id, message);
+        return { error: message };
+      } finally {
+        activeRuns.delete(analysis.id);
+      }
+    })();
+    activeRuns.set(analysis.id, { controller, job });
+    // Web clients acknowledge the start and poll; existing Telegram clients may wait for completion.
+    if (request.query.background === 'true') return reply.code(202).send(db.getAnalysis(analysis.id));
+    const outcome = await job;
+    return outcome.error ? reply.code(502).send({ error: outcome.error }) : reply.send(outcome.analysis);
   });
 
   app.get('/api/analyses/:id/result', { schema: { ...idParam, tags: ['Results'] } }, request => {
@@ -134,4 +151,7 @@ export async function buildApp(config = {}) {
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const app = await buildApp();
   await app.listen({ host: '0.0.0.0', port: Number(process.env.PORT ?? 3000) });
+  for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => {
+    void app.close().then(() => process.exit(0));
+  });
 }

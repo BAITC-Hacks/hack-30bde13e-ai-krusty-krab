@@ -24,12 +24,14 @@ test('internal API exposes health and rejects invalid analysis input', async () 
 
 test('example documents complete through HTTP and report LLM provider failures', async () => {
   const previous = {
+    PROVIDER_CACHE_DIR: process.env.PROVIDER_CACHE_DIR,
     LLM_PROVIDER: process.env.LLM_PROVIDER,
     LLM_API_KEY: process.env.LLM_API_KEY,
     LLM_BASE_URL: process.env.LLM_BASE_URL,
     EMBEDDING_API_KEY: process.env.EMBEDDING_API_KEY,
     EMBEDDING_BASE_URL: process.env.EMBEDDING_BASE_URL,
   };
+  process.env.PROVIDER_CACHE_DIR = '';
   process.env.LLM_PROVIDER = 'openai';
   process.env.LLM_API_KEY = 'test';
   process.env.EMBEDDING_API_KEY = 'test';
@@ -64,7 +66,7 @@ test('example documents complete through HTTP and report LLM provider failures',
     failProvider = true;
     const failure = await request();
     assert.equal(failure.status, 502);
-    assert.match((await failure.json()).error, /LLM provider request failed with HTTP 429: Insufficient quota/);
+    assert.match((await failure.json()).error, /LLM extraction provider request failed with HTTP 429: Insufficient quota/);
   } finally {
     server.close();
     provider.close();

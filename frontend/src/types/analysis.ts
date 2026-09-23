@@ -62,6 +62,8 @@ export interface AnalysisSummary {
 export interface Analysis {
   id: string
   createdAt: string
+  updatedAt?: string
+  limitations?: string[]
   status: AnalysisStatus
   demo?: boolean
   error?: string

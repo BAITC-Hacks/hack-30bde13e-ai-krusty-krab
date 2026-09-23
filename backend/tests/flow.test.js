@@ -12,12 +12,14 @@ const office = new Blob([Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x00])]);
 test('upload, AI handoff, evidence preservation, failure and mock flow', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'hackalem-backend-'));
   let failAi = false;
+  let gate;
   let received = '';
   const evidence = { document: 'before.pdf', page: 3, section: '2.1', text: 'Исходная обязанность' };
   const aiResult = { summary: 'Changes found', findings: [{ type: 'lost_function', evidence: [evidence] }], extra: { source: 'AI' } };
   const ai = createServer(async (req, res) => {
     received = '';
     for await (const chunk of req) received += chunk.toString('latin1');
+    if (gate) await gate;
     res.writeHead(failAi ? 500 : 200, { 'content-type': 'application/json' });
     res.end(JSON.stringify(failAi ? { error: 'unavailable' } : aiResult));
   });
@@ -71,6 +73,22 @@ test('upload, AI handoff, evidence preservation, failure and mock flow', async (
     assert.equal((await json(`/api/analyses/${analysis.id}/result`))[0], 409);
     failAi = false;
     assert.equal((await json(`/api/analyses/${analysis.id}/run`, { method: 'POST' }))[1].error, null);
+    let release;
+    gate = new Promise(resolve => { release = resolve; });
+    const [accepted, running] = await json(`/api/analyses/${analysis.id}/run?background=true`, { method: 'POST' });
+    assert.equal(accepted, 202);
+    assert.equal(running.status, 'PROCESSING');
+    assert.equal((await json(`/api/analyses/${analysis.id}/run?background=true`, { method: 'POST' }))[0], 409);
+    release();
+    gate = undefined;
+    let finished;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      finished = (await json(`/api/analyses/${analysis.id}`))[1];
+      if (finished.status !== 'PROCESSING') break;
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    assert.equal(finished.status, 'COMPLETED');
+    assert.deepEqual((await json(`/api/analyses/${analysis.id}/result`))[1], aiResult);
     failAi = true;
     await new Promise(resolve => ai.close(resolve));
     const [offlineStatus, offline] = await json(`/api/analyses/${analysis.id}/run`, { method: 'POST' });

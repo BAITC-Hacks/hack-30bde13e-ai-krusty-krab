@@ -40,12 +40,12 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return response.json() as Promise<T>
 }
 
-type BackendAnalysis = { id: string; status: string; created_at: string; error: string | null }
+type BackendAnalysis = { id: string; status: string; created_at: string; updated_at: string; error: string | null }
 type BackendDocument = { id: string; filename: string; side: string }
 type Source = { document_id: string; document_name: string; page: number | null;
   sheet: string | null; section: string | null; paragraph: number | null; text: string }
 type ServiceResult = {
-  summary?: { before_departments: number; after_departments: number } | string
+  summary?: { before_departments: number; after_departments: number; limitations?: string[] } | string
   departments?: { id: string; name: string; side: string }[]
   department_matches?: { before_id: string | null; after_id: string | null; relation: string }[]
   functions?: { id: string; text: string; side: string; department: string }[]
@@ -82,9 +82,9 @@ function adapt(row: BackendAnalysis, files: BackendDocument[], result?: ServiceR
   const functionById = new Map(functions.map((item) => [item.id, item]))
 
   return {
-    id: row.id, createdAt: row.created_at, error: row.error ?? undefined,
+    id: row.id, createdAt: row.created_at, updatedAt: row.updated_at, error: row.error ?? undefined,
     status: statusMap[row.status] ?? 'failed',
-    documents, demo: typeof result?.summary === 'string',
+    documents, limitations: typeof result?.summary === 'object' ? result.summary.limitations : undefined, demo: typeof result?.summary === 'string',
     ...(result ? {
       summary: {
         beforeDepartments: typeof result.summary === 'object' ? result.summary.before_departments : 0,
@@ -118,16 +118,19 @@ function adapt(row: BackendAnalysis, files: BackendDocument[], result?: ServiceR
   }
 }
 
-async function load(row: BackendAnalysis): Promise<Analysis> {
+async function load(row: BackendAnalysis, includeResult = true): Promise<Analysis> {
   const files = await request<BackendDocument[]>(`/analyses/${row.id}/documents`)
-  const result = row.status === 'COMPLETED'
+  const result = includeResult && row.status === 'COMPLETED'
     ? await request<ServiceResult>(`/analyses/${row.id}/result`) : undefined
   return adapt(row, files, result)
 }
 
 export const analysisApi = {
+  async retry(id: string): Promise<Analysis> {
+    return load(await request<BackendAnalysis>(`/analyses/${encodeURIComponent(id)}/run?background=true`, { method: 'POST' }))
+  },
   async list(): Promise<Analysis[]> {
-    if (!isMockMode) return Promise.all((await request<BackendAnalysis[]>('/analyses')).map(load))
+    if (!isMockMode) return Promise.all((await request<BackendAnalysis[]>('/analyses')).map(row => load(row, false)))
     const analyses = readMock().map(completeMock)
     writeMock(analyses)
     return analyses.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -157,8 +160,7 @@ export const analysisApi = {
           await request(`/analyses/${row.id}/documents`, { method: 'POST', body: form })
         }
       }
-      void request(`/analyses/${row.id}/run`, { method: 'POST' }).catch(console.error)
-      return load(await request<BackendAnalysis>(`/analyses/${row.id}`))
+      return load(await request<BackendAnalysis>(`/analyses/${row.id}/run?background=true`, { method: 'POST' }))
     }
     const analysis: Analysis = {
       id: crypto.randomUUID(),

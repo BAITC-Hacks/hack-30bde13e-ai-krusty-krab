@@ -1,3 +1,4 @@
+import { mapConcurrent } from './concurrency.js';
 import { analysisResult } from './schema.js';
 import { parseDocument } from './parsing.js';
 import { extract, stableId } from './extraction.js';
@@ -7,7 +8,7 @@ function cosine(a, b) {
   if (!a || !b || a.length !== b.length) throw new Error('Embedding vectors have incompatible dimensions');
   const dot = a.reduce((sum, value, index) => sum + value * b[index], 0);
   const length = Math.hypot(...a) * Math.hypot(...b);
-  return length ? dot / length : 0;
+  return length ? Math.max(-1, Math.min(1, dot / length)) : 0;
 }
 
 function compatible(a, b) {
@@ -68,8 +69,11 @@ async function judge(old, next, similarity, objectSimilarity, llm) {
     return { relation: 'UNRELATED', confidence: Math.min(0.95, Math.max(similarity, objectSimilarity)),
       explanation: 'Роли действий различаются.' };
   }
+  if (old.normalized_text === next.normalized_text) {
+    return { relation: 'EQUIVALENT', confidence: 1, explanation: 'Текст функции совпадает после нормализации.' };
+  }
   if (similarity < 0.54 || objectSimilarity < 0.5) {
-    return { relation: 'UNRELATED', confidence: Math.max(0.5, 1 - Math.min(similarity, objectSimilarity)),
+    return { relation: 'UNRELATED', confidence: Math.min(1, Math.max(0.5, 1 - Math.min(similarity, objectSimilarity))),
       explanation: 'Недостаточное смысловое сходство.' };
   }
   if (similarity >= 0.6 && similarity <= 0.9) {
@@ -108,8 +112,7 @@ async function judge(old, next, similarity, objectSimilarity, llm) {
 async function functionMatches(before, after, departments, vectors, llm) {
   const mappedDepartments = new Map(departments.filter(item => item.after_id &&
     item.relation !== 'UNCERTAIN').map(item => [item.before_id, item.after_id]));
-  const matches = [];
-  for (const old of before) {
+  return mapConcurrent(before, 4, async old => {
     const candidates = after.map(next => ({ next, similarity: cosine(vectors.get(old.id), vectors.get(next.id)) }))
       .sort((a, b) => b.similarity - a.similarity).slice(0, 3);
     const assessed = [];
@@ -122,17 +125,17 @@ async function functionMatches(before, after, departments, vectors, llm) {
         confidence: Number(verdict.confidence.toFixed(3)), similarity: Number(similarity.toFixed(3)),
         explanation: moved ? `Эквивалентная функция обнаружена в другом подразделении. ${verdict.explanation}` :
           verdict.explanation });
+      if (assessed.at(-1).relation === 'EQUIVALENT') break;
     }
     const adequate = ['EQUIVALENT', 'MOVED', 'PARTIAL']
       .map(relation => assessed.find(item => item.relation === relation)).find(Boolean);
-    if (adequate) matches.push(adequate);
-    else if (assessed[0]?.similarity >= 0.6) matches.push(assessed[0]);
-    else matches.push({ before_id: old.id, after_id: null, relation: 'MISSING',
-      confidence: Number(Math.max(0.5, 1 - (assessed[0]?.similarity || 0)).toFixed(3)),
+    if (adequate) return adequate;
+    if (assessed[0]?.similarity >= 0.6) return assessed[0];
+    return { before_id: old.id, after_id: null, relation: 'MISSING',
+      confidence: Number(Math.min(1, Math.max(0.5, 1 - (assessed[0]?.similarity || 0))).toFixed(3)),
       similarity: assessed[0]?.similarity || 0,
-      explanation: 'Достаточного соответствия в предоставленных AFTER документах не обнаружено.' });
-  }
-  return matches;
+      explanation: 'Достаточного соответствия в предоставленных AFTER документах не обнаружено.' };
+  });
 }
 
 function verifiedSource(func, fragments, documents) {
@@ -186,11 +189,19 @@ function findings(before, after, matches, vectors, fragments, documents) {
   return output;
 }
 
-export async function analyze(request, { llm = llmProvider(), embeddings = embeddingProvider() } = {}) {
+export async function analyze(request, { signal, llm = llmProvider({ signal }),
+  embeddings = embeddingProvider({ signal }), onProgress = () => {} } = {}) {
+  const started = Date.now();
+  const progress = stage => {
+    signal?.throwIfAborted();
+    onProgress({ stage, elapsedMs: Date.now() - started, llm: llm.stats, embeddings: embeddings.stats });
+  };
+  progress('parsing');
   const fragments = [];
   for (const [side, documents] of [['BEFORE', request.before], ['AFTER', request.after]]) {
     for (const document of documents) fragments.push(...await parseDocument(document, side));
   }
+  progress('extraction');
   const { departments, functions } = await extract(fragments, llm);
   const beforeDepartments = departments.filter(item => item.side === 'BEFORE');
   const afterDepartments = departments.filter(item => item.side === 'AFTER');
@@ -201,11 +212,16 @@ export async function analyze(request, { llm = llmProvider(), embeddings = embed
     ...functions.map(item => [item.id, item.normalized_text]),
     ...functions.map(item => [`${item.id}:object`, item.fingerprint.object]),
   ];
-  const embedded = await embeddings.embed(items.map(([, text]) => text));
-  if (embedded.length !== items.length) throw new Error('Embedding provider returned an unexpected number of vectors');
-  const vectors = new Map(items.map(([key], index) => [key, embedded[index]]));
+  progress('embeddings');
+  const texts = [...new Set(items.map(([, text]) => text))];
+  const embedded = await embeddings.embed(texts);
+  if (embedded.length !== texts.length) throw new Error('Embedding provider returned an unexpected number of vectors');
+  const byText = new Map(texts.map((text, index) => [text, embedded[index]]));
+  const vectors = new Map(items.map(([key, text]) => [key, byText.get(text)]));
+  progress('matching');
   const department_matches = departmentMatches(beforeDepartments, afterDepartments, functions, vectors);
   const function_matches = await functionMatches(beforeFunctions, afterFunctions, department_matches, vectors, llm);
+  progress('findings');
   const detected = findings(beforeFunctions, afterFunctions, function_matches, vectors,
     new Map(fragments.map(item => [item.id, item])),
     new Map([...request.before, ...request.after].map(item => [item.id, item])));
@@ -216,11 +232,13 @@ export async function analyze(request, { llm = llmProvider(), embeddings = embed
   if (!beforeFunctions.length || !afterFunctions.length) {
     limitations.push('Functions were not extracted from at least one side; scanned PDFs need OCR and loss findings are suppressed when AFTER is empty.');
   }
-  return analysisResult.parse({
+  const result = analysisResult.parse({
     summary: { before_documents: request.before.length, after_documents: request.after.length,
       before_departments: beforeDepartments.length, after_departments: afterDepartments.length,
       before_functions: beforeFunctions.length, after_functions: afterFunctions.length,
       findings: detected.length, limitations },
     fragments, departments, functions, department_matches, function_matches, findings: detected,
   });
+  progress('completed');
+  return result;
 }

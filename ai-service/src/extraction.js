@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { mapConcurrent } from './concurrency.js';
 import { source } from './parsing.js';
 
 const departmentPattern = /(?<![\p{L}\p{N}])(?:Департамент|Управление|Отдел|Служба|Дирекция|Сектор|Комитет|Центр|Дивизион)\s+[А-ЯЁа-яёA-Za-z0-9][^.;:()\n]{2,100}/iu;
@@ -86,19 +87,29 @@ export async function extract(fragments, llm) {
   }
 
   const chunks = [];
-  for (let start = 0; start < fragments.length; start += 64) chunks.push(fragments.slice(start, start + 64));
-  const responses = [];
-  for (let start = 0; start < chunks.length; start += 4) {
-    responses.push(...await Promise.all(chunks.slice(start, start + 4).map(async chunk => {
-      const response = await llm.complete('extraction',
-        'Extract explicit organizational departments and individual functions from Russian documents. ' +
-        'Return fragment_id and exact verbatim quote copied from that fragment. Never infer names or rewrite text. ' +
-        'Each function department_name must be an explicit department name in these fragments. Return empty arrays if absent.',
-        JSON.stringify(chunk.map(item => ({ id: item.id, text: item.text, kind: item.kind,
-          department_hint: item.department_hint }))));
-      return { chunk, response };
-    })));
+  let chunk = [], characters = 0;
+  for (const fragment of fragments) {
+    if (chunk.length && (chunk.length >= 64 || characters + fragment.text.length > 16000 ||
+        chunk[0].document_id !== fragment.document_id)) {
+      chunks.push(chunk); chunk = []; characters = 0;
+    }
+    chunk.push(fragment); characters += fragment.text.length;
   }
+  if (chunk.length) chunks.push(chunk);
+  const responses = await mapConcurrent(chunks, 4, async chunk => {
+    const response = await llm.complete('extraction',
+      'Extract explicit organizational departments and individual functions from Russian documents. ' +
+      'Return fragment_id and exact verbatim quote copied from that fragment. Never infer names or rewrite text. ' +
+      'Each function department_name must be an explicit department name in these fragments. Return empty arrays if absent.',
+      JSON.stringify(chunk.map((item, index) => ({ id: String(index), text: item.text, kind: item.kind,
+        department_hint: item.department_hint }))));
+    // Request-local positions allow reuse across uploads; restore current source IDs before grounding.
+    const ids = new Map(chunk.map((item, index) => [String(index), item.id]));
+    return { chunk, response: response && {
+      departments: response.departments.map(item => ({ ...item, fragment_id: ids.get(item.fragment_id) })),
+      functions: response.functions.map(item => ({ ...item, fragment_id: ids.get(item.fragment_id) })),
+    } };
+  });
   for (const { chunk, response } of responses) {
     if (!response) continue;
     const allowed = new Set(chunk.map(item => item.id));
