@@ -4,5 +4,28 @@
 !.env.example
 node_modules/
 dist/
+dist-ssr/
 coverage/
 *.log
+logs/
+*.local
+
+# Local editor and Python files
+**/.vscode/*
+!**/.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.venv/
+__pycache__/
+*.py[cod]
+
+# Runtime data and one-off check output
+/backend/data/*
+!/backend/data/.gitkeep
+/bot/data/
+/ai-service/data/
+/.hallmark/
