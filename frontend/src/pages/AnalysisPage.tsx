@@ -29,6 +29,7 @@ export function AnalysisPage() {
     {analysis.status === 'failed' && <StateMessage tone="error">Анализ завершился с ошибкой: {analysis.error || 'Причина не указана.'}</StateMessage>}
     {analysis.status === 'completed' && <>
       {isMockMode && <StateMessage>Демо результат: файлы не разбирались, поэтому показатели равны нулю и выводов нет. Подключите backend для анализа содержимого.</StateMessage>}
+      {analysis.demo && <StateMessage>Backend запущен с USE_MOCK_AI=true: документы сохранены, но их содержимое не анализировалось. Для анализа подключите AI Service и установите USE_MOCK_AI=false.</StateMessage>}
       <nav aria-label="Разделы анализа" className="flex gap-2 overflow-x-auto border-b pb-2">
         {tabs.map((item) => <Button key={item} variant={tab === item ? 'default' : 'ghost'} size="sm" onClick={() => setSearchParams({ tab: item })}>{item}</Button>)}
       </nav>

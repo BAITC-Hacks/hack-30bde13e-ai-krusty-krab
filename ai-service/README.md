@@ -6,8 +6,9 @@ Node.js 22.13+ service for a small Hackalem demonstration corpus. It parses PDF,
 
 ```sh
 cd ai-service
-npm install
-export EMBEDDING_API_KEY=... # or LLM_API_KEY
+npm ci
+cp -n .env.example .env
+# Впишите OpenAI API ключ в LLM_API_KEY внутри .env
 npm start
 ```
 
@@ -37,7 +38,7 @@ The response contains `summary`, `fragments`, `departments`, `functions`, `depar
 | `LLM_API_KEY` | unset | LLM credential |
 | `LLM_BASE_URL` | OpenAI API | OpenAI-compatible base URL |
 
-For the best demo recall, set `LLM_PROVIDER=openai` and `LLM_API_KEY`. LLM responses use JSON Schema structured output and Zod validation. Quotes are accepted only when they occur verbatim inside the stated extracted fragment. API calls are isolated in `src/providers.js`.
+The example `.env` enables `LLM_PROVIDER=openai`. `EMBEDDING_API_KEY` falls back to `LLM_API_KEY`, so one OpenAI API key is enough. LLM responses use JSON Schema structured output and Zod validation. Quotes are accepted only when they occur verbatim inside the stated extracted fragment. API calls are isolated in `src/providers.js`.
 
 ## MVP limits
 

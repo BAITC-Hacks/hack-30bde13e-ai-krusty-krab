@@ -55,8 +55,11 @@ test('upload, AI handoff, evidence preservation, failure and mock flow', async (
     assert.equal((await upload(analysis.id, 'after', 'after.pdf'))[0], 201);
     assert.equal((await json(`/api/analyses/${analysis.id}/documents`))[1].length, 2);
     assert.equal((await json(`/api/analyses/${analysis.id}/run`, { method: 'POST' }))[1].status, 'COMPLETED');
-    assert.match(received, /name="before"/);
-    assert.match(received, /name="after"/);
+    const request = JSON.parse(received);
+    assert.equal(request.before[0].name, 'before.pdf');
+    assert.equal(request.after[0].name, 'after.pdf');
+    assert.equal(Buffer.from(request.before[0].content_base64, 'base64').toString(), '%PDF-1.7\nexample');
+    assert.notEqual(request.before[0].id, request.after[0].id);
     assert.deepEqual((await json(`/api/analyses/${analysis.id}/result`))[1], aiResult);
     failAi = true;
     assert.equal((await json(`/api/analyses/${analysis.id}/run`, { method: 'POST' }))[0], 502);

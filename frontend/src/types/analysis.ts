@@ -63,6 +63,7 @@ export interface Analysis {
   id: string
   createdAt: string
   status: AnalysisStatus
+  demo?: boolean
   error?: string
   documents: Document[]
   summary?: AnalysisSummary

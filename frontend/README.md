@@ -4,18 +4,19 @@
 
 ```bash
 npm install
-cp .env.example .env
+cp -n .env.example .env
 npm run dev
 ```
 
-Пустой `VITE_API_URL` включает локальный mock API. Он сохраняет только имена файлов и состояние анализа в `localStorage`; содержимое документов не читает и evidence не создаёт. Для production сборки: `npm run build`.
+Пример `.env.example` подключает локальный backend через Vite proxy по `/api`. Пустой `VITE_API_URL` включает mock API только в браузере: он сохраняет имена файлов в `localStorage` и не читает содержимое документов. Для production сборки задайте полный адрес API и запустите `npm run build`.
 
 ## HTTP API
 
-Пока общего контракта в `/shared/contracts` нет, frontend ожидает:
+Frontend использует маршруты backend:
 
-- `GET {VITE_API_URL}/analyses` → `Analysis[]` (последние анализы);
-- `POST {VITE_API_URL}/analyses` → `Analysis`, multipart поля `beforeFiles` и `afterFiles` (несколько файлов в каждом);
-- `GET {VITE_API_URL}/analyses/:id` → `Analysis` со статусом и, по завершении, `summary`, `departments`, `functions`, `findings`.
+- `POST /analyses` с JSON `{ "name": "..." }` создаёт анализ;
+- `POST /analyses/:id/documents` загружает по одному файлу с полями `side` и `file`;
+- `POST /analyses/:id/run` запускает анализ;
+- `GET /analyses`, `/analyses/:id`, `/analyses/:id/documents`, `/analyses/:id/result` читают состояние и результат.
 
-Формы данных описаны в `src/types/analysis.ts`. Все запросы и выбор mock/HTTP реализации находятся в `src/api/analysis.ts`. Если backend утвердит другой формат, адаптируйте только этот слой и модели; компоненты не вызывают `fetch` напрямую. Страница анализа опрашивает API, пока статус `queued` или `processing`.
+Данные backend и AI Service преобразуются в формы из `src/types/analysis.ts` внутри `src/api/analysis.ts`.
