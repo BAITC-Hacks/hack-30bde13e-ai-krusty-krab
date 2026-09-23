@@ -1,17 +1,24 @@
 import { extractionJsonSchema, extractionResponse, judgmentJsonSchema, judgmentResponse } from './schema.js';
 
-async function postJson(url, key, body) {
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-    body: JSON.stringify(body), signal: AbortSignal.timeout(60_000),
-  });
+async function postJson(url, key, body, stage) {
+  let response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+      body: JSON.stringify(body), signal: AbortSignal.timeout(60_000),
+    });
+  } catch (cause) {
+    throw Object.assign(new Error(`${stage} provider did not respond: ${cause.cause?.code || cause.name}`), { status: 502, cause });
+  }
   if (!response.ok) {
     const rejectedKey = [401, 403].includes(response.status);
+    const body = await response.json().catch(() => null);
+    const detail = typeof body?.error?.message === 'string' ? `: ${body.error.message.slice(0, 300)}` : '';
     const error = new Error(rejectedKey
-      ? `Provider rejected API key (HTTP ${response.status})`
-      : `Provider request failed with HTTP ${response.status}`);
-    if (rejectedKey) error.status = 503;
+      ? `${stage} provider rejected API key (HTTP ${response.status})${detail}`
+      : `${stage} provider request failed with HTTP ${response.status}${detail}`);
+    error.status = rejectedKey ? 503 : 502;
     throw error;
   }
   return response.json();
@@ -38,7 +45,7 @@ export class OpenAILLM {
       model: this.model, temperature: 0,
       messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
       response_format: { type: 'json_schema', json_schema: { name: kind, strict: true, schema } },
-    });
+    }, 'LLM');
     const message = data.choices?.[0]?.message;
     if (!message?.content || message.refusal) throw new Error('LLM did not return structured output');
     return validator.parse(JSON.parse(message.content));
@@ -57,7 +64,7 @@ export class OpenAIEmbeddings {
 
   async embed(texts) {
     if (!texts.length) return [];
-    const data = await postJson(`${this.baseUrl}/embeddings`, this.key, { model: this.model, input: texts });
+    const data = await postJson(`${this.baseUrl}/embeddings`, this.key, { model: this.model, input: texts }, 'Embeddings');
     const vectors = data.data?.sort((a, b) => a.index - b.index).map(item => item.embedding);
     if (!Array.isArray(vectors) || vectors.length !== texts.length ||
         vectors.some(vector => !Array.isArray(vector) || vector.some(value => !Number.isFinite(value)))) {

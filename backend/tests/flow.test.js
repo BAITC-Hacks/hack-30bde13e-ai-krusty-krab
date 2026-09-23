@@ -65,8 +65,13 @@ test('upload, AI handoff, evidence preservation, failure and mock flow', async (
     const [failureStatus, failure] = await json(`/api/analyses/${analysis.id}/run`, { method: 'POST' });
     assert.equal(failureStatus, 502);
     assert.match(failure.error, /AI Service вернул HTTP 500: unavailable/);
-    assert.equal((await json(`/api/analyses/${analysis.id}`))[1].status, 'FAILED');
+    const failed = (await json(`/api/analyses/${analysis.id}`))[1];
+    assert.equal(failed.status, 'FAILED');
+    assert.equal(failed.error, failure.error);
     assert.equal((await json(`/api/analyses/${analysis.id}/result`))[0], 409);
+    failAi = false;
+    assert.equal((await json(`/api/analyses/${analysis.id}/run`, { method: 'POST' }))[1].error, null);
+    failAi = true;
     await new Promise(resolve => ai.close(resolve));
     const [offlineStatus, offline] = await json(`/api/analyses/${analysis.id}/run`, { method: 'POST' });
     assert.equal(offlineStatus, 502);

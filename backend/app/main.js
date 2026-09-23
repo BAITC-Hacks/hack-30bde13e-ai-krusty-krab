@@ -114,8 +114,9 @@ export async function buildApp(config = {}) {
       return reply.send(db.completeRun(analysis.id, result));
     } catch (error) {
       request.log.error(error);
-      db.failRun(analysis.id);
-      return reply.code(502).send({ error: error.publicMessage ?? 'AI Service analysis failed' });
+      const message = error.publicMessage ?? 'AI Service analysis failed';
+      db.failRun(analysis.id, message);
+      return reply.code(502).send({ error: message });
     }
   });
 

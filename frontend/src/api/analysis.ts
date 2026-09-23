@@ -40,7 +40,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return response.json() as Promise<T>
 }
 
-type BackendAnalysis = { id: string; status: string; created_at: string }
+type BackendAnalysis = { id: string; status: string; created_at: string; error: string | null }
 type BackendDocument = { id: string; filename: string; side: string }
 type Source = { document_id: string; document_name: string; page: number | null;
   sheet: string | null; section: string | null; paragraph: number | null; text: string }
@@ -82,7 +82,7 @@ function adapt(row: BackendAnalysis, files: BackendDocument[], result?: ServiceR
   const functionById = new Map(functions.map((item) => [item.id, item]))
 
   return {
-    id: row.id, createdAt: row.created_at,
+    id: row.id, createdAt: row.created_at, error: row.error ?? undefined,
     status: statusMap[row.status] ?? 'failed',
     documents, demo: typeof result?.summary === 'string',
     ...(result ? {

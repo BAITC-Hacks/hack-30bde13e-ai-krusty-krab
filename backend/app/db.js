@@ -11,6 +11,7 @@ export function openDb(databaseUrl) {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       status TEXT NOT NULL CHECK (status IN ('CREATED','UPLOADING','PROCESSING','COMPLETED','FAILED')),
+      error TEXT,
       created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
       updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
     );
@@ -29,6 +30,9 @@ export function openDb(databaseUrl) {
       created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
     );
   `);
+  if (!db.prepare('PRAGMA table_info(analyses)').all().some(column => column.name === 'error')) {
+    db.exec('ALTER TABLE analyses ADD COLUMN error TEXT');
+  }
 
   const transaction = action => {
     db.exec('BEGIN');
@@ -42,7 +46,7 @@ export function openDb(databaseUrl) {
     }
   };
   const getAnalysis = id => db.prepare('SELECT * FROM analyses WHERE id = ?').get(id);
-  const setStatus = (id, status) => db.prepare("UPDATE analyses SET status = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(status, id);
+  const setStatus = (id, status, error = null) => db.prepare("UPDATE analyses SET status = ?, error = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?").run(status, error, id);
 
   return {
     close: () => db.close(),
@@ -70,7 +74,7 @@ export function openDb(databaseUrl) {
       setStatus(id, 'COMPLETED');
       return getAnalysis(id);
     }),
-    failRun: id => setStatus(id, 'FAILED'),
+    failRun: (id, error) => setStatus(id, 'FAILED', error),
     getResult: id => {
       const row = db.prepare('SELECT result_json FROM analysis_results WHERE analysis_id = ?').get(id);
       return row ? JSON.parse(row.result_json) : null;
