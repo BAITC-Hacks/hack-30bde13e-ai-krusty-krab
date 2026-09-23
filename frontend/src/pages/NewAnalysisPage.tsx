@@ -28,17 +28,18 @@ export function NewAnalysisPage() {
     }
   }
 
-  return <div className="space-y-6">
-    <div><Link className="text-sm text-muted-foreground hover:underline" to="/">← На главную</Link><h1 className="mt-3 text-3xl font-bold">Новый анализ</h1><p className="mt-2 text-muted-foreground">Загрузите документы состояния организации до и после реорганизации.</p></div>
-    {isMockMode && <StateMessage>Демо режим не читает содержимое файлов. Для реального анализа укажите VITE_API_URL.</StateMessage>}
-    <form onSubmit={submit} className="space-y-5">
-      <div className="grid gap-4 lg:grid-cols-2">
+  return <div>
+    <Link className="back-link" to="/">← Все анализы</Link>
+    <div className="page-head"><div className="page-head__copy"><span className="eyebrow">Новый анализ / 02</span><h1 className="page-title mt-4">Сравните два состояния.</h1><p className="lede">Добавьте документы до и после реорганизации. Мы сопоставим подразделения, функции и ответственность.</p></div></div>
+    {isMockMode && <div className="mb-6"><StateMessage>Демо режим не читает содержимое файлов. Для реального анализа укажите VITE_API_URL.</StateMessage></div>}
+    <form onSubmit={submit}>
+      <div className="upload-grid">
         <DocumentPicker side="before" files={before} onChange={setBefore} onError={setValidationError} />
         <DocumentPicker side="after" files={after} onChange={setAfter} onError={setValidationError} />
       </div>
-      {validationError && <p role="alert" className="text-sm text-red-700">{validationError}</p>}
-      {create.error && <StateMessage tone="error">Не удалось создать анализ: {create.error.message}</StateMessage>}
-      <Button type="submit" disabled={create.isPending}>{create.isPending ? 'Отправка…' : 'Запустить анализ'}</Button>
+      {validationError && <p role="alert" className="form-error mt-4">{validationError}</p>}
+      {create.error && <div className="mt-4"><StateMessage tone="error">Не удалось создать анализ: {create.error.message}</StateMessage></div>}
+      <div className="form-actions"><span className="form-help">PDF, DOCX и XLSX · минимум один файл с каждой стороны</span><Button type="submit" size="lg" disabled={create.isPending}>{create.isPending ? 'Отправка…' : 'Запустить анализ ↗'}</Button></div>
     </form>
   </div>
 }
