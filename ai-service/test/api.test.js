@@ -22,25 +22,31 @@ test('internal API exposes health and rejects invalid analysis input', async () 
   }
 });
 
-test('example documents complete through HTTP and report embedding provider failures', async () => {
+test('example documents complete through HTTP and report LLM provider failures', async () => {
   const previous = {
     LLM_PROVIDER: process.env.LLM_PROVIDER,
+    LLM_API_KEY: process.env.LLM_API_KEY,
+    LLM_BASE_URL: process.env.LLM_BASE_URL,
     EMBEDDING_API_KEY: process.env.EMBEDDING_API_KEY,
     EMBEDDING_BASE_URL: process.env.EMBEDDING_BASE_URL,
   };
-  process.env.LLM_PROVIDER = 'none';
+  process.env.LLM_PROVIDER = 'openai';
+  process.env.LLM_API_KEY = 'test';
   process.env.EMBEDDING_API_KEY = 'test';
   let failProvider = false;
   const provider = createServer(async (request, response) => {
     const chunks = [];
     for await (const chunk of request) chunks.push(chunk);
-    const input = JSON.parse(Buffer.concat(chunks).toString()).input;
+    const body = JSON.parse(Buffer.concat(chunks).toString());
     response.writeHead(failProvider ? 429 : 200, { 'Content-Type': 'application/json' });
     response.end(JSON.stringify(failProvider
       ? { error: { message: 'Insufficient quota' } }
-      : { data: input.map((text, index) => ({ index, embedding: [text.length + 1, 1] })) }));
+      : request.url === '/chat/completions'
+        ? { choices: [{ message: { content: JSON.stringify({ departments: [], functions: [] }) } }] }
+        : { data: body.input.map((text, index) => ({ index, embedding: [text.length + 1, 1] })) }));
   }).listen(0, '127.0.0.1');
   await once(provider, 'listening');
+  process.env.LLM_BASE_URL = `http://127.0.0.1:${provider.address().port}`;
   process.env.EMBEDDING_BASE_URL = `http://127.0.0.1:${provider.address().port}`;
   const server = app().listen(0, '127.0.0.1');
   await once(server, 'listening');
@@ -58,7 +64,7 @@ test('example documents complete through HTTP and report embedding provider fail
     failProvider = true;
     const failure = await request();
     assert.equal(failure.status, 502);
-    assert.match((await failure.json()).error, /Embeddings provider request failed with HTTP 429: Insufficient quota/);
+    assert.match((await failure.json()).error, /LLM provider request failed with HTTP 429: Insufficient quota/);
   } finally {
     server.close();
     provider.close();
