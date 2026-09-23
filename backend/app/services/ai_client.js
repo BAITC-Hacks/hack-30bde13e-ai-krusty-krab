@@ -1,22 +1,18 @@
 import { readFile } from 'node:fs/promises';
 
-const mime = {
-  pdf: 'application/pdf',
-  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-};
-
-export async function analyze(analysisId, documents, { aiServiceUrl, useMockAi }) {
+export async function analyze(documents, { aiServiceUrl, useMockAi }) {
   if (useMockAi) return { summary: 'Mock analysis completed', findings: [] };
 
-  const form = new FormData();
-  form.set('analysis_id', analysisId);
+  const body = { before: [], after: [] };
   for (const document of documents) {
     const content = await readFile(document.storage_path);
-    form.append(document.side.toLowerCase(), new Blob([content], { type: mime[document.file_type] }), document.filename);
+    body[document.side.toLowerCase()].push({
+      id: document.id, name: document.filename, content_base64: content.toString('base64')
+    });
   }
   const response = await fetch(`${aiServiceUrl.replace(/\/$/, '')}/analyze`, {
-    method: 'POST', body: form, signal: AbortSignal.timeout(120_000)
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body), signal: AbortSignal.timeout(120_000)
   });
   if (!response.ok) throw new Error(`AI Service returned HTTP ${response.status}`);
   const result = await response.json();

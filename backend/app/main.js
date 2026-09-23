@@ -110,7 +110,7 @@ export async function buildApp(config = {}) {
     }
     db.beginRun(analysis.id);
     try {
-      const result = await analyze(analysis.id, documents, { aiServiceUrl, useMockAi });
+      const result = await analyze(documents, { aiServiceUrl, useMockAi });
       return reply.send(db.completeRun(analysis.id, result));
     } catch (error) {
       request.log.error(error);

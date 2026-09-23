@@ -15,10 +15,9 @@ API: `http://localhost:3000`, Swagger UI: `http://localhost:3000/docs/`, про�
 
 ## Контракт AI Service
 
-При `USE_MOCK_AI=false` backend отправляет `POST ${AI_SERVICE_URL}/analyze` с `multipart/form-data`:
+При `USE_MOCK_AI=false` backend отправляет `POST ${AI_SERVICE_URL}/analyze` с JSON:
 
-- `analysis_id`: UUID анализа;
-- каждый исходный файл — отдельное поле `before` или `after`; имя загруженного файла сохраняется.
+- `before` и `after`: массивы `{id, name, content_base64}` для загруженных документов.
 
 Успешный ответ AI Service — JSON объект. Backend хранит и возвращает его целиком, включая любые вложенные `document`, `page`, `section`, `text`. Текущая общая форма mock ответа:
 
