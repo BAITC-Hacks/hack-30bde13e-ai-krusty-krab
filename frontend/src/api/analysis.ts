@@ -157,7 +157,7 @@ export const analysisApi = {
           await request(`/analyses/${row.id}/documents`, { method: 'POST', body: form })
         }
       }
-      await request(`/analyses/${row.id}/run`, { method: 'POST' })
+      void request(`/analyses/${row.id}/run`, { method: 'POST' }).catch(console.error)
       return load(await request<BackendAnalysis>(`/analyses/${row.id}`))
     }
     const analysis: Analysis = {

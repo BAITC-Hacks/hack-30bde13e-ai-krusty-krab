@@ -85,19 +85,30 @@ export async function extract(fragments, llm) {
     }
   }
 
-  for (let start = 0; start < fragments.length; start += 16) {
-    const chunk = fragments.slice(start, start + 16);
-    const response = await llm.complete('extraction',
-      'Extract explicit organizational departments and individual functions from Russian documents. ' +
-      'Return fragment_id and exact verbatim quote copied from that fragment. Never infer names or rewrite text. ' +
-      'Each function department_name must be an explicit department name in these fragments. Return empty arrays if absent.',
-      JSON.stringify(chunk.map(item => ({ id: item.id, text: item.text, kind: item.kind,
-        department_hint: item.department_hint }))));
+  const chunks = [];
+  for (let start = 0; start < fragments.length; start += 64) chunks.push(fragments.slice(start, start + 64));
+  const responses = [];
+  for (let start = 0; start < chunks.length; start += 4) {
+    responses.push(...await Promise.all(chunks.slice(start, start + 4).map(async chunk => {
+      const response = await llm.complete('extraction',
+        'Extract explicit organizational departments and individual functions from Russian documents. ' +
+        'Return fragment_id and exact verbatim quote copied from that fragment. Never infer names or rewrite text. ' +
+        'Each function department_name must be an explicit department name in these fragments. Return empty arrays if absent.',
+        JSON.stringify(chunk.map(item => ({ id: item.id, text: item.text, kind: item.kind,
+          department_hint: item.department_hint }))));
+      return { chunk, response };
+    })));
+  }
+  for (const { chunk, response } of responses) {
     if (!response) continue;
     const allowed = new Set(chunk.map(item => item.id));
     for (const mention of response.departments) {
       if (allowed.has(mention.fragment_id)) addDepartment(byId.get(mention.fragment_id), mention.quote);
     }
+  }
+  for (const { chunk, response } of responses) {
+    if (!response) continue;
+    const allowed = new Set(chunk.map(item => item.id));
     for (const mention of response.functions) {
       if (allowed.has(mention.fragment_id)) addFunction(byId.get(mention.fragment_id), mention.quote, mention.department_name);
     }

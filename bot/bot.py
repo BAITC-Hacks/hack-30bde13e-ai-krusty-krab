@@ -41,7 +41,7 @@ def owns(db, user_id, analysis_id):
 
 async def api(method, path, **kwargs):
     try:
-        async with httpx.AsyncClient(timeout=130 if path.endswith("/run") else 60) as client:
+        async with httpx.AsyncClient(timeout=610 if path.endswith("/run") else 60) as client:
             response = await client.request(method, f"{API_URL}/api{path}", **kwargs)
             if response.is_error:
                 try:
@@ -194,7 +194,7 @@ async def run_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     active_id = await active_analysis(update, context)
     if not active_id:
         return
-    await update.message.reply_text("Запускаю анализ. Это может занять до двух минут…")
+    await update.message.reply_text("Запускаю анализ. Это может занять до десяти минут…")
     await api("POST", f"/analyses/{active_id}/run")
     await show_result(update, context, active_id)
 

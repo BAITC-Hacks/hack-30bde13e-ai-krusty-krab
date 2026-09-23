@@ -15,7 +15,7 @@ export async function analyze(documents, { aiServiceUrl, useMockAi }) {
   try {
     response = await fetch(`${aiServiceUrl.replace(/\/$/, '')}/analyze`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input), signal: AbortSignal.timeout(120_000)
+      body: JSON.stringify(input), signal: AbortSignal.timeout(600_000)
     });
   } catch (error) {
     throw serviceError(error.name === 'TimeoutError'
