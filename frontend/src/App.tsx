@@ -8,7 +8,7 @@ export default function App() {
   return <div className="app-shell">
     <header className="site-header">
       <div className="site-header__inner">
-        <Link className="brand" to="/" aria-label="Hackalem AI — главная"><span className="brand-mark" aria-hidden="true">H.</span><span>Hackalem AI</span></Link>
+        <Link className="brand" to="/" aria-label="Reorg AI — главная"><span className="brand-mark" aria-hidden="true">R.</span><span>Reorg AI</span></Link>
         <nav className="header-actions" aria-label="Основная навигация">
           <Link className="header-link" to="/">Все анализы</Link>
           <Link className="header-cta" to="/analysis/new">Новый анализ <span aria-hidden="true">↗</span></Link>
@@ -24,6 +24,6 @@ export default function App() {
         <Route path="*" element={<div><span className="eyebrow">404 / Не найдено</span><h1 className="page-title mt-4">Страница не найдена</h1><Link className="back-link mt-6" to="/">← На главную</Link></div>} />
       </Routes>
     </main>
-    <footer className="site-footer"><div className="site-footer__inner"><span>Hackalem AI · Анализ организационных изменений</span><span>Документы → структура → выводы</span></div></footer>
+    <footer className="site-footer"><div className="site-footer__inner"><span>Reorg AI · Анализ организационных изменений</span><span>Документы → структура → выводы</span></div></footer>
   </div>
 }

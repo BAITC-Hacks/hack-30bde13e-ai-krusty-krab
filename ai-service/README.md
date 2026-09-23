@@ -1,4 +1,4 @@
-# Hackalem AI Service
+# Reorg AI Service
 
 Node.js 22.13+ service for a small Hackalem demonstration corpus. It parses PDF, DOCX and XLSX, extracts source-linked departments and functions, compares BEFORE and AFTER, then verifies evidence for every finding. It has no storage or user-facing API.
 

@@ -1,4 +1,4 @@
-# Hackalem AI frontend
+# Reorg AI frontend
 
 ## Запуск
 

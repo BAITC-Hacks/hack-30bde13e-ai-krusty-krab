@@ -1,4 +1,4 @@
-# Design — Hackalem AI
+# Design — Reorg AI
 
 ## Genre
 Modern minimal, utilitarian. The interface is a working surface for comparing organisational documents.

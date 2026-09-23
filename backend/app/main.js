@@ -33,7 +33,7 @@ export async function buildApp(config = {}) {
 
   await app.register(cors, { origin: corsOrigins ? corsOrigins.split(',').map(x => x.trim()) : false });
   await app.register(multipart, { limits: { files: 1, fields: 1, parts: 2, fileSize: 20 * 1024 * 1024 } });
-  await app.register(swagger, { openapi: { info: { title: 'Hackalem Analysis API', version: '1.0.0' } } });
+  await app.register(swagger, { openapi: { info: { title: 'Reorg AI API', version: '1.0.0' } } });
   await app.register(swaggerUi, { routePrefix: '/docs' });
 
   app.setErrorHandler((error, request, reply) => {
