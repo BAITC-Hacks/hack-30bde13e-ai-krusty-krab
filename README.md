@@ -38,3 +38,5 @@ npm start
 Frontend: `http://localhost:5173`. Backend и Swagger UI: `http://localhost:3000` и `http://localhost:3000/docs/`. AI Service: `http://localhost:8001/health`.
 
 Сканированные PDF без текстового слоя требуют OCR. Размер одного загружаемого файла ограничен 20 МБ.
+
+Для работы через Telegram используйте [бота на Python](bot/README.md).
