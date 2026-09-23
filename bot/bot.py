@@ -156,7 +156,7 @@ async def active_analysis(update, context):
         return None
     return active_id
 
-
+# функция для получения результата
 def result_text(result):
     summary = result.get("summary")
     if isinstance(summary, dict):
@@ -180,7 +180,7 @@ def result_text(result):
         text += "\n\nПодробности: /finding N (например, /finding 1)"
     return text
 
-
+# функция для показа резултата 
 async def show_result(update, context, active_id):
     analysis = await api("GET", f"/analyses/{active_id}")
     if analysis["status"] != "COMPLETED":
