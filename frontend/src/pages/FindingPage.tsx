@@ -1,7 +1,5 @@
 import { Link, useParams } from 'react-router'
 import { StateMessage } from '@/components/StateMessage'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EvidenceViewer } from '@/features/evidence/EvidenceViewer'
 import { useAnalysis } from '@/hooks/use-analysis'
 import { confidenceLabel, severityLabel, typeLabel } from '@/lib/labels'
@@ -14,9 +12,10 @@ export function FindingPage() {
   const finding = analysis?.findings?.find((item) => item.id === findingId)
   if (!finding) return <StateMessage>Вывод не найден.</StateMessage>
 
-  return <div className="space-y-6">
-    <div><Link className="text-sm text-muted-foreground hover:underline" to={`/analysis/${id}?tab=Findings`}>← К выводам</Link><h1 className="mt-3 text-3xl font-bold">{finding.title}</h1><div className="mt-3 flex flex-wrap gap-2"><Badge variant="outline">{typeLabel[finding.type]}</Badge><Badge variant={finding.severity === 'high' ? 'destructive' : 'secondary'}>{severityLabel[finding.severity]}</Badge><Badge variant="outline">Уверенность {confidenceLabel(finding.confidence)}</Badge><Badge variant="outline">{finding.status || 'Новый'}</Badge></div></div>
-    <Card><CardHeader><CardTitle>Объяснение AI</CardTitle></CardHeader><CardContent className="space-y-3 text-sm leading-relaxed"><p>{finding.explanation}</p>{finding.department && <p><strong>Подразделение:</strong> {finding.department}</p>}{finding.function && <p><strong>Функция:</strong> {finding.function}</p>}</CardContent></Card>
-    <section className="space-y-3"><h2 className="text-xl font-semibold">Доказательства из документов</h2><EvidenceViewer evidence={finding.evidence} /></section>
+  return <div>
+    <Link className="back-link" to={`/analysis/${id}?tab=Findings`}>← К выводам</Link>
+    <div className="page-head"><div className="page-head__copy"><span className="eyebrow">{typeLabel[finding.type]}</span><h1 className="page-title mt-4">{finding.title}</h1><div className="meta-line"><span className={`severity severity--${finding.severity}`}>{severityLabel[finding.severity]} серьёзность</span><span className="section-count">Уверенность {confidenceLabel(finding.confidence)}</span><span className="section-count">{finding.status || 'Новый'}</span></div></div></div>
+    <section className="detail-card"><span className="eyebrow detail-card__label">Объяснение AI</span><p className="detail-card__body">{finding.explanation}</p>{(finding.department || finding.function) && <div className="detail-meta">{finding.department && <p>Подразделение: <strong>{finding.department}</strong></p>}{finding.function && <p>Функция: <strong>{finding.function}</strong></p>}</div>}</section>
+    <section className="document-section"><div className="section-heading"><h2 className="section-title">Доказательства из документов</h2><span className="section-count">{finding.evidence.length} источников</span></div><EvidenceViewer evidence={finding.evidence} /></section>
   </div>
 }

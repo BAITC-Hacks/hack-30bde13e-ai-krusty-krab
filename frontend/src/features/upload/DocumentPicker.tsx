@@ -1,6 +1,5 @@
 import { useRef } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { Side } from '@/types/analysis'
 
 const allowedExtensions = /\.(pdf|docx|xlsx)$/i
@@ -27,32 +26,14 @@ export function DocumentPicker({ side, files, onChange, onError }: {
     if (inputRef.current) inputRef.current.value = ''
   }
 
-  return (
-    <Card>
-      <CardHeader><CardTitle>{side === 'before' ? 'BEFORE · До реорганизации' : 'AFTER · После реорганизации'}</CardTitle></CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-sm text-muted-foreground">PDF, DOCX или XLSX</p>
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".pdf,.docx,.xlsx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-          multiple
-          className="sr-only"
-          id={`files-${side}`}
-          onChange={(event) => addFiles(event.target.files)}
-        />
-        <Button type="button" variant="outline" onClick={() => inputRef.current?.click()}>Выбрать файлы</Button>
-        {files.length === 0 ? <p className="text-sm text-muted-foreground">Файлы пока не выбраны</p> : (
-          <ul className="space-y-2" aria-label={`Файлы ${side}`}>
-            {files.map((file) => (
-              <li key={`${file.name}:${file.size}:${file.lastModified}`} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm">
-                <span className="min-w-0 truncate" title={file.name}>{file.name}</span>
-                <Button type="button" size="sm" variant="ghost" aria-label={`Удалить ${file.name}`} onClick={() => onChange(files.filter((item) => item !== file))}>Удалить</Button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
-  )
+  return <section className="upload-panel" aria-labelledby={`picker-${side}`}>
+    <div className="upload-panel__top"><span className="upload-panel__number">{side === 'before' ? '01 / BEFORE' : '02 / AFTER'}</span><span aria-hidden="true">↗</span></div>
+    <h2 className="upload-panel__title" id={`picker-${side}`}>{side === 'before' ? 'До реорганизации' : 'После реорганизации'}</h2>
+    <p className="upload-panel__hint">Добавьте PDF, DOCX или XLSX</p>
+    <input ref={inputRef} type="file" accept=".pdf,.docx,.xlsx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple className="sr-only" id={`files-${side}`} onChange={(event) => addFiles(event.target.files)} />
+    <Button className="upload-panel__action" type="button" variant="outline" size="lg" onClick={() => inputRef.current?.click()}>+ Выбрать файлы</Button>
+    {files.length === 0 ? <p className="upload-panel__hint mt-8">Файлы пока не выбраны</p> : <ul className="file-list" aria-label={`Файлы ${side}`}>
+      {files.map((file) => <li className="file-item" key={`${file.name}:${file.size}:${file.lastModified}`}><span className="min-w-0 truncate" title={file.name}>{file.name}</span><Button type="button" size="sm" variant="ghost" aria-label={`Удалить ${file.name}`} onClick={() => onChange(files.filter((item) => item !== file))}>Удалить</Button></li>)}
+    </ul>}
+  </section>
 }

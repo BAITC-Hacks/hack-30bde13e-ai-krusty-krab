@@ -1,40 +1,48 @@
 import { Link, useParams, useSearchParams } from 'react-router'
 import { isMockMode } from '@/api/analysis'
 import { StateMessage } from '@/components/StateMessage'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { FunctionsList } from '@/features/analysis/FunctionsList'
 import { SummaryGrid } from '@/features/analysis/SummaryGrid'
 import { DepartmentsList } from '@/features/departments/DepartmentsList'
 import { FindingsList } from '@/features/findings/FindingsList'
 import { useAnalysis } from '@/hooks/use-analysis'
+import { sideLabel } from '@/lib/labels'
 
-const tabs = ['Overview', 'Departments', 'Functions', 'Findings'] as const
-type Tab = typeof tabs[number]
+const tabs = [
+  ['Overview', 'Обзор'],
+  ['Departments', 'Подразделения'],
+  ['Functions', 'Функции'],
+  ['Findings', 'Выводы'],
+] as const
+
+type Tab = typeof tabs[number][0]
+const statusLabel = { queued: 'В очереди', processing: 'В работе', completed: 'Готово', failed: 'Ошибка' }
 
 export function AnalysisPage() {
   const { id = '' } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
   const { data: analysis, isPending, error } = useAnalysis(id)
   const requested = searchParams.get('tab')
-  const tab: Tab = tabs.find((item) => item === requested) ?? 'Overview'
+  const tab: Tab = tabs.find(([value]) => value === requested)?.[0] ?? 'Overview'
 
   if (isPending) return <StateMessage>Загрузка анализа…</StateMessage>
   if (error) return <StateMessage tone="error">Не удалось загрузить анализ: {error.message}</StateMessage>
   if (!analysis) return <StateMessage>Анализ не найден.</StateMessage>
 
-  return <div className="space-y-6">
-    <div><Link className="text-sm text-muted-foreground hover:underline" to="/">← Все анализы</Link><div className="mt-3 flex flex-wrap items-center gap-3"><h1 className="text-3xl font-bold">Результаты анализа</h1><Badge variant="outline">{new Date(analysis.createdAt).toLocaleString('ru-RU')}</Badge></div></div>
-    {(analysis.status === 'queued' || analysis.status === 'processing') && <div role="status" className="space-y-3 rounded-lg border bg-white p-6"><div className="h-2 w-full overflow-hidden rounded-full bg-slate-100"><div className="h-full w-1/3 animate-pulse rounded-full bg-blue-600" /></div><h2 className="font-semibold">Анализ выполняется</h2><p className="text-sm text-muted-foreground">Страница обновится автоматически, когда результат будет готов.</p></div>}
+  return <div>
+    <Link className="back-link" to="/">← Все анализы</Link>
+    <div className="page-head"><div className="page-head__copy"><span className="eyebrow">Результаты / {statusLabel[analysis.status]}</span><h1 className="page-title mt-4">Анализ изменений.</h1><p className="lede">Сводка сравнения организационных документов.</p><div className="meta-line"><span className="section-count">Создан {new Date(analysis.createdAt).toLocaleString('ru-RU')}</span><span className="section-count">{analysis.documents.length} документов</span></div></div></div>
+
+    {(analysis.status === 'queued' || analysis.status === 'processing') && <div role="status" className="detail-card"><div className="progress-track"><div className="progress-track__fill animate-pulse" /></div><h2 className="section-title mt-6">Анализ выполняется</h2><p className="mt-2 text-sm text-muted-foreground">Страница обновится автоматически, когда результат будет готов.</p></div>}
     {analysis.status === 'failed' && <StateMessage tone="error">Анализ завершился с ошибкой: {analysis.error || 'Причина не указана.'}</StateMessage>}
     {analysis.status === 'completed' && <>
-      {isMockMode && <StateMessage>Демо результат: файлы не разбирались, поэтому показатели равны нулю и выводов нет. Подключите backend для анализа содержимого.</StateMessage>}
-      <nav aria-label="Разделы анализа" className="flex gap-2 overflow-x-auto border-b pb-2">
-        {tabs.map((item) => <Button key={item} variant={tab === item ? 'default' : 'ghost'} size="sm" onClick={() => setSearchParams({ tab: item })}>{item}</Button>)}
+      {isMockMode && <div className="mb-6"><StateMessage>Демо результат: файлы не разбирались, поэтому показатели равны нулю и выводов нет. Подключите backend для анализа содержимого.</StateMessage></div>}
+      <nav aria-label="Разделы анализа" className="analysis-tabs">
+        {tabs.map(([value, label]) => <button key={value} type="button" className={`analysis-tab ${tab === value ? 'analysis-tab--active' : ''}`} aria-current={tab === value ? 'page' : undefined} onClick={() => setSearchParams({ tab: value })}>{label}</button>)}
       </nav>
-      {tab === 'Overview' && <div className="space-y-6">
+      {tab === 'Overview' && <div>
         {analysis.summary ? <SummaryGrid summary={analysis.summary} /> : <StateMessage>Сводка ещё не предоставлена API.</StateMessage>}
-        <section className="space-y-3"><h2 className="text-xl font-semibold">Документы</h2><ul className="divide-y rounded-lg border bg-white">{analysis.documents.map((document) => <li key={document.id} className="flex justify-between gap-3 p-3 text-sm"><span className="min-w-0 truncate">{document.name}</span><Badge variant="outline">{document.side.toUpperCase()}</Badge></li>)}</ul></section>
+        <section className="document-section"><div className="section-heading"><h2 className="section-title">Документы</h2><span className="section-count">{analysis.documents.length} всего</span></div><ul className="data-list">{analysis.documents.map((document) => <li key={document.id} className="data-row"><span className="data-row__name">{document.name}</span><span className="section-count">{sideLabel[document.side]}</span></li>)}</ul></section>
       </div>}
       {tab === 'Departments' && <DepartmentsList departments={analysis.departments ?? []} />}
       {tab === 'Functions' && <FunctionsList functions={analysis.functions ?? []} />}
