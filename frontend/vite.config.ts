@@ -7,4 +7,5 @@ import path from 'node:path'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: { alias: { '@': path.resolve(import.meta.dirname, './src') } },
+  server: { proxy: { '/api': 'http://localhost:3000' } },
 })

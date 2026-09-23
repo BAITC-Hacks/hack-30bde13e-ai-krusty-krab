@@ -12,13 +12,12 @@ const office = new Blob([Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x00])]);
 test('upload, AI handoff, evidence preservation, failure and mock flow', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'hackalem-backend-'));
   let failAi = false;
-  let received;
+  let received = '';
   const evidence = { document: 'before.pdf', page: 3, section: '2.1', text: 'Исходная обязанность' };
   const aiResult = { summary: 'Changes found', findings: [{ type: 'lost_function', evidence: [evidence] }], extra: { source: 'AI' } };
   const ai = createServer(async (req, res) => {
-    let body = '';
-    for await (const chunk of req) body += chunk;
-    received = JSON.parse(body);
+    received = '';
+    for await (const chunk of req) received += chunk.toString('latin1');
     res.writeHead(failAi ? 500 : 200, { 'content-type': 'application/json' });
     res.end(JSON.stringify(failAi ? { error: 'unavailable' } : aiResult));
   });
@@ -56,9 +55,11 @@ test('upload, AI handoff, evidence preservation, failure and mock flow', async (
     assert.equal((await upload(analysis.id, 'after', 'after.pdf'))[0], 201);
     assert.equal((await json(`/api/analyses/${analysis.id}/documents`))[1].length, 2);
     assert.equal((await json(`/api/analyses/${analysis.id}/run`, { method: 'POST' }))[1].status, 'COMPLETED');
-    assert.equal(received.before[0].name, 'before.pdf');
-    assert.equal(received.after[0].name, 'after.pdf');
-    assert.equal(Buffer.from(received.before[0].content_base64, 'base64').toString(), '%PDF-1.7\nexample');
+    const request = JSON.parse(received);
+    assert.equal(request.before[0].name, 'before.pdf');
+    assert.equal(request.after[0].name, 'after.pdf');
+    assert.equal(Buffer.from(request.before[0].content_base64, 'base64').toString(), '%PDF-1.7\nexample');
+    assert.notEqual(request.before[0].id, request.after[0].id);
     assert.deepEqual((await json(`/api/analyses/${analysis.id}/result`))[1], aiResult);
     failAi = true;
     assert.equal((await json(`/api/analyses/${analysis.id}/run`, { method: 'POST' }))[0], 502);

@@ -4,7 +4,7 @@
 
 ```sh
 npm install
-cp .env.example .env
+cp -n .env.example .env
 npm run dev
 ```
 
@@ -17,7 +17,8 @@ API: `http://localhost:3000`, Swagger UI: `http://localhost:3000/docs/`, про�
 
 При `USE_MOCK_AI=false` backend отправляет `POST ${AI_SERVICE_URL}/analyze` с JSON:
 
-- `before` и `after`: массивы `{id, name, content_base64}` для загруженных документов.
+- `before` и `after`: массивы документов с `id`, `name` и `content_base64`;
+- `id` совпадает с идентификатором загруженного документа, поэтому источники в ответе можно связать с файлами.
 
 Успешный ответ AI Service — JSON объект. Backend хранит и возвращает его целиком, включая любые вложенные `document`, `page`, `section`, `text`. Текущая общая форма mock ответа:
 

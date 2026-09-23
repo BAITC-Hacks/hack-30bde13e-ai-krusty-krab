@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { Side } from '@/types/analysis'
 
 const allowedExtensions = /\.(pdf|docx|xlsx)$/i
+const maxFileSize = 20 * 1024 * 1024
 
 export function DocumentPicker({ side, files, onChange, onError }: {
   side: Side
@@ -21,6 +22,11 @@ export function DocumentPicker({ side, files, onChange, onError }: {
       if (inputRef.current) inputRef.current.value = ''
       return
     }
+    if (next.some((file) => file.size > maxFileSize)) {
+      onError('Размер одного файла не должен превышать 20 МБ.')
+      if (inputRef.current) inputRef.current.value = ''
+      return
+    }
     onError('')
     const current = new Set(files.map((file) => `${file.name}:${file.size}:${file.lastModified}`))
     onChange([...files, ...next.filter((file) => !current.has(`${file.name}:${file.size}:${file.lastModified}`))])
@@ -31,7 +37,7 @@ export function DocumentPicker({ side, files, onChange, onError }: {
     <Card>
       <CardHeader><CardTitle>{side === 'before' ? 'BEFORE · До реорганизации' : 'AFTER · После реорганизации'}</CardTitle></CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-sm text-muted-foreground">PDF, DOCX или XLSX</p>
+        <p className="text-sm text-muted-foreground">PDF, DOCX или XLSX · до 20 МБ</p>
         <input
           ref={inputRef}
           type="file"
