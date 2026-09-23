@@ -16,7 +16,6 @@ npm run dev
 ```sh
 cd frontend
 npm ci
-cp -n .env.example .env
 npm run dev
 ```
 

@@ -4,7 +4,6 @@
 
 ```bash
 npm install
-cp -n .env.example .env
 npm run dev
 ```
 
