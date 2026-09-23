@@ -19,7 +19,7 @@ export async function analyze(documents, { aiServiceUrl, useMockAi }) {
     });
   } catch (error) {
     throw serviceError(error.name === 'TimeoutError'
-      ? 'AI Service не ответил за 120 секунд'
+      ? 'AI Service не ответил за 600 секунд'
       : `AI Service недоступен по адресу ${aiServiceUrl}. Запустите его или установите USE_MOCK_AI=true`);
   }
   if (!response.ok) {

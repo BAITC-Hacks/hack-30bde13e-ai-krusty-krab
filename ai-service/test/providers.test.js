@@ -32,3 +32,21 @@ test('provider failure reports the upstream reason to the analysis caller', asyn
     globalThis.fetch = originalFetch;
   }
 });
+
+test('provider timeout identifies the failing stage and duration', async () => {
+  const originalFetch = globalThis.fetch;
+  const previousTimeout = process.env.PROVIDER_TIMEOUT_MS;
+  process.env.PROVIDER_TIMEOUT_MS = '90000';
+  globalThis.fetch = async () => { throw new DOMException('Timed out', 'TimeoutError'); };
+  try {
+    await assert.rejects(new OpenAIEmbeddings({ key: 'test' }).embed(['test']), error => {
+      assert.equal(error.status, 502);
+      assert.equal(error.message, 'Embeddings provider timed out after 90 seconds');
+      return true;
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (previousTimeout === undefined) delete process.env.PROVIDER_TIMEOUT_MS;
+    else process.env.PROVIDER_TIMEOUT_MS = previousTimeout;
+  }
+});

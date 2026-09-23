@@ -1,15 +1,19 @@
 import { extractionJsonSchema, extractionResponse, judgmentJsonSchema, judgmentResponse } from './schema.js';
 
 async function postJson(url, key, body, stage) {
+  const timeoutMs = Number(process.env.PROVIDER_TIMEOUT_MS || 120_000);
   let response;
   try {
     response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-      body: JSON.stringify(body), signal: AbortSignal.timeout(60_000),
+      body: JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (cause) {
-    throw Object.assign(new Error(`${stage} provider did not respond: ${cause.cause?.code || cause.name}`), { status: 502, cause });
+    const reason = cause.name === 'TimeoutError'
+      ? `timed out after ${timeoutMs / 1000} seconds`
+      : `did not respond: ${cause.cause?.code || cause.name}`;
+    throw Object.assign(new Error(`${stage} provider ${reason}`), { status: 502, cause });
   }
   if (!response.ok) {
     const rejectedKey = [401, 403].includes(response.status);

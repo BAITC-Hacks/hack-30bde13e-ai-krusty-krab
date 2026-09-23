@@ -37,6 +37,7 @@ The response contains `summary`, `fragments`, `departments`, `functions`, `depar
 | `LLM_MODEL` | `gpt-4o-mini` | Structured output model |
 | `LLM_API_KEY` | unset | LLM credential |
 | `LLM_BASE_URL` | OpenAI API | OpenAI-compatible base URL |
+| `PROVIDER_TIMEOUT_MS` | `120000` | Timeout for each LLM or embeddings request in milliseconds |
 
 The example `.env` enables `LLM_PROVIDER=openai`. `EMBEDDING_API_KEY` falls back to `LLM_API_KEY`, so one OpenAI API key is enough. LLM responses use JSON Schema structured output and Zod validation. Quotes are accepted only when they occur verbatim inside the stated extracted fragment. API calls are isolated in `src/providers.js`.
 
